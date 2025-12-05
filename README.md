@@ -135,8 +135,11 @@ Para usar la funcionalidad de Spotify:
 1. Ve a [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
 2. Crea una nueva app
 3. Copia el **Client ID** y **Client Secret**
-4. Añade `http://localhost:8501` como Redirect URI en la configuración de tu app
+4. Añade tu Redirect URI en la configuración de tu app:
+   - **Local**: `http://localhost:8501`
+   - **Streamlit Cloud**: `https://TU_APP.streamlit.app` (reemplaza TU_APP con el nombre de tu app)
 5. Introduce las credenciales en la pestaña de Spotify
+6. **En Streamlit Cloud**: Después de hacer clic en "Conectar", se mostrará un enlace. Ábrelo en una nueva pestaña, autoriza la app, y luego pega la URL de redirección en el campo que aparece.
 
 ## 📁 Estructura del Proyecto
 

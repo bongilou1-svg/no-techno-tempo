@@ -5,6 +5,11 @@ secondaryBackgroundColor = "#ffffff"
 textColor = "#0f172a"
 font = "sans serif"
 
+[theme.sidebar]
+widgetBackgroundColor = "#ffffff"
+widgetBorderColor = "#e5e7eb"
+skeletonBackgroundColor = "#f3f4f6"
+
 [server]
 headless = true
 port = 8501
