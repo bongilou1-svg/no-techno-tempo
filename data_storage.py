@@ -53,7 +53,8 @@ def get_default_data() -> Dict:
         "estilos": {},
         "ultima_actualizacion": None,
         "rekordbox": None,
-        "tiempos_busqueda": []
+        "tiempos_busqueda": [],
+        "spotify_credentials": None  # Guardar credenciales de Spotify de forma segura
     }
 
 
@@ -244,4 +245,45 @@ def get_tiempo_estimado(total_items: int, user_id: str) -> float:
 def clear_data(user_id: str):
     """Limpia todos los datos guardados del usuario"""
     save_data(get_default_data(), user_id)
+
+
+def save_spotify_credentials(client_id: str, client_secret: str, redirect_uri: str, user_id: str):
+    """
+    Guarda las credenciales de Spotify de forma segura por usuario
+    
+    Args:
+        client_id: Client ID de Spotify
+        client_secret: Client Secret de Spotify
+        redirect_uri: Redirect URI configurado
+        user_id: ID del usuario
+    """
+    data = load_data(user_id)
+    data["spotify_credentials"] = {
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "redirect_uri": redirect_uri,
+        "saved_at": datetime.now().isoformat()
+    }
+    save_data(data, user_id)
+
+
+def get_spotify_credentials(user_id: str) -> Optional[Dict]:
+    """
+    Obtiene las credenciales guardadas de Spotify del usuario
+    
+    Args:
+        user_id: ID del usuario
+    
+    Returns:
+        Diccionario con credenciales o None si no existen
+    """
+    data = load_data(user_id)
+    return data.get("spotify_credentials")
+
+
+def clear_spotify_credentials(user_id: str):
+    """Elimina las credenciales guardadas de Spotify"""
+    data = load_data(user_id)
+    data["spotify_credentials"] = None
+    save_data(data, user_id)
 

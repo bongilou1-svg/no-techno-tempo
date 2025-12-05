@@ -334,8 +334,11 @@ def format_duration(ms: int) -> str:
     return f"{minutes}:{seconds:02d}"
 
 
-def render_spotify_tab():
+def render_spotify_tab(user_id: str):
     """Renderiza la pestaña de Spotify"""
+    
+    # Importar funciones de almacenamiento
+    from data_storage import get_spotify_credentials, save_spotify_credentials
     
     # Verificar si hay código en query params (callback de OAuth)
     query_params = st.query_params
@@ -363,47 +366,62 @@ def render_spotify_tab():
     if not sp:
         st.info("🔐 Conecta tu cuenta de Spotify para comenzar")
         
-        # Mostrar siempre visible, no en expander para evitar problemas
-        st.markdown("### 🔑 Configuración de Spotify")
-        st.markdown("""
-        ### Pasos para obtener credenciales:
+        # Cargar credenciales guardadas
+        saved_creds = get_spotify_credentials(user_id)
         
-        1. Ve a [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
-        2. Crea una nueva app
-        3. Copia el **Client ID** y **Client Secret**
-        4. Añade tu Redirect URI en la configuración:
-           - **Local**: `http://localhost:8501`
-           - **Streamlit Cloud**: `https://TU_APP.streamlit.app`
-        """)
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            client_id = st.text_input("Client ID", type="default", key="spotify_client_id_input")
-        with col2:
-            client_secret = st.text_input("Client Secret", type="password", key="spotify_client_secret_input")
-        
-        # Detectar URL automáticamente - simplificado
-        # En Streamlit Cloud, usar la URL de la app
-        # En local, usar localhost
+        # Detectar URL automáticamente
         try:
-            # Verificar si estamos en Streamlit Cloud mirando la URL actual
-            import urllib.parse
-            # Intentar obtener la URL base
             default_redirect = "http://localhost:8501"
-            
-            # Si hay una variable de entorno de Streamlit Cloud, usarla
             streamlit_url = os.getenv("STREAMLIT_SERVER_BASE_URL", "")
             if streamlit_url and "streamlit.app" in streamlit_url:
                 default_redirect = streamlit_url.rstrip('/')
-            elif "streamlit.app" in os.getenv("_", ""):
-                # Fallback: usar el nombre de la app si está disponible
-                default_redirect = "https://no-techno-tempo.streamlit.app"
+            else:
+                # Intentar detectar desde la URL actual
+                try:
+                    import streamlit.web.server.websocket_headers as ws_headers
+                    # Estamos en Streamlit Cloud
+                    default_redirect = "https://no-techno-tempo.streamlit.app"
+                except:
+                    pass
         except:
             default_redirect = "http://localhost:8501"
         
+        # Usar credenciales guardadas si existen
+        default_client_id = saved_creds.get('client_id', '') if saved_creds else ''
+        default_client_secret = saved_creds.get('client_secret', '') if saved_creds else ''
+        default_redirect_uri = saved_creds.get('redirect_uri', default_redirect) if saved_creds else default_redirect
+        
+        # Mostrar siempre visible, no en expander para evitar problemas
+        st.markdown("### 🔑 Configuración de Spotify")
+        
+        if saved_creds:
+            st.success("✅ Credenciales guardadas encontradas. Puedes modificarlas si lo necesitas.")
+            if st.button("🗑️ Eliminar credenciales guardadas"):
+                from data_storage import clear_spotify_credentials
+                clear_spotify_credentials(user_id)
+                st.success("✅ Credenciales eliminadas")
+                st.rerun()
+        else:
+            st.markdown("""
+            ### Pasos para obtener credenciales:
+            
+            1. Ve a [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
+            2. Crea una nueva app
+            3. Copia el **Client ID** y **Client Secret**
+            4. Añade tu Redirect URI en la configuración:
+               - **Local**: `http://localhost:8501`
+               - **Streamlit Cloud**: `https://no-techno-tempo.streamlit.app`
+            """)
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            client_id = st.text_input("Client ID", value=default_client_id, type="default", key="spotify_client_id_input")
+        with col2:
+            client_secret = st.text_input("Client Secret", value=default_client_secret, type="password", key="spotify_client_secret_input")
+        
         redirect_uri = st.text_input(
             "Redirect URI", 
-            value=default_redirect, 
+            value=default_redirect_uri, 
             key="spotify_redirect_uri_input"
         )
         st.caption("⚠️ **IMPORTANTE:** Esta URL debe coincidir EXACTAMENTE con la configurada en Spotify (sin barra final `/`)")
@@ -467,14 +485,6 @@ def render_spotify_tab():
                 
                 # Botón de conexión
                 if st.button("🔗 Conectar con Spotify", type="primary", use_container_width=True, key="spotify_connect_btn"):
-                    # Este mensaje DEBE aparecer si el botón funciona
-                    st.markdown("### 🔥 BOTÓN PRESIONADO - PROCESANDO...")
-                    st.write("🔍 Validando campos...")
-                    st.write("✅ **BOTÓN PRESIONADO - INICIANDO PROCESO...**")
-                    st.write(f"🔍 Client ID: {'✅ Presente' if client_id else '❌ Vacío'}")
-                    st.write(f"🔍 Client Secret: {'✅ Presente' if client_secret else '❌ Vacío'}")
-                    st.write(f"🔍 Redirect URI: {redirect_uri if redirect_uri else '❌ Vacío'}")
-                    
                     # Validar campos
                     if not client_id:
                         st.error("❌ Client ID está vacío")
@@ -483,11 +493,12 @@ def render_spotify_tab():
                     elif not redirect_uri:
                         st.error("❌ Redirect URI está vacío")
                     else:
-                        st.write("✅ Campos validados, generando URL...")
                         # Limpiar barra final si existe para evitar problemas
                         redirect_uri_clean = redirect_uri.strip().rstrip('/')
                         
-                        st.info(f"🔍 Intentando conectar... Redirect URI: `{redirect_uri_clean}`")
+                        # Guardar credenciales antes de conectar
+                        save_spotify_credentials(client_id, client_secret, redirect_uri_clean, user_id)
+                        st.info("💾 Credenciales guardadas de forma segura")
                         
                         try:
                             auth_url = get_auth_url(client_id, client_secret, redirect_uri_clean)
@@ -496,15 +507,12 @@ def render_spotify_tab():
                                 st.session_state['spotify_auth_url'] = auth_url
                                 st.session_state['spotify_redirect_uri'] = redirect_uri_clean
                                 st.success("✅ ¡URL de autorización generada!")
-                                st.balloons()
                                 st.rerun()
                             else:
                                 st.error(f"❌ URL inválida generada: {auth_url}")
                         except Exception as e:
-                            import traceback
                             error_msg = str(e)
                             st.error(f"❌ **Error al generar URL:** {error_msg}")
-                            st.code(traceback.format_exc(), language="python")
                             st.info("💡 **Solución:**")
                             st.info("1. Verifica que el Redirect URI en Spotify sea: `https://no-techno-tempo.streamlit.app` (sin barra final)")
                             st.info("2. Verifica que las credenciales sean correctas")

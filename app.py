@@ -484,7 +484,7 @@ with tab_discos:
 with tab_spotify:
     try:
         from spotify_module import render_spotify_tab
-        render_spotify_tab()
+        render_spotify_tab(user_id)
     except ImportError:
         st.info("🔧 Módulo en desarrollo")
 
