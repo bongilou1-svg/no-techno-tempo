@@ -150,18 +150,20 @@ def get_user_playlists(sp: spotipy.Spotify) -> List[Dict]:
     return playlists
 
 
-def get_playlist_tracks(sp: spotipy.Spotify, playlist_id: str) -> List[Dict]:
+def get_playlist_tracks(sp: spotipy.Spotify, playlist_id: str, include_features: bool = True) -> List[Dict]:
     """
-    Obtiene las canciones de una playlist
+    Obtiene las canciones de una playlist con estadísticas de audio
     
     Args:
         sp: Cliente de Spotify autenticado
         playlist_id: ID de la playlist
+        include_features: Si incluir estadísticas de audio
     
     Returns:
         Lista de diccionarios con información de canciones
     """
     tracks = []
+    track_ids = []
     try:
         results = sp.playlist_tracks(playlist_id, limit=100)
         
@@ -169,53 +171,124 @@ def get_playlist_tracks(sp: spotipy.Spotify, playlist_id: str) -> List[Dict]:
             for item in results['items']:
                 if item['track'] and item['track'] is not None:
                     track = item['track']
-                    tracks.append({
+                    track_data = {
                         'artista': ', '.join([artist['name'] for artist in track['artists']]),
                         'titulo': track['name'],
                         'album': track['album']['name'],
                         'duracion_ms': track['duration_ms'],
-                        'url': track['external_urls']['spotify']
-                    })
+                        'url': track['external_urls']['spotify'],
+                        'id': track['id']
+                    }
+                    tracks.append(track_data)
+                    if track['id']:
+                        track_ids.append(track['id'])
             
             if results['next']:
                 results = sp.next(results)
             else:
                 break
+        
+        # Obtener audio features si se solicita
+        if include_features and track_ids:
+            # Spotify API limita a 100 tracks por request
+            features_batch = []
+            for i in range(0, len(track_ids), 100):
+                batch = track_ids[i:i+100]
+                try:
+                    features = sp.audio_features(batch)
+                    features_batch.extend(features if features else [])
+                except:
+                    pass
+            
+            # Mapear features a tracks
+            features_dict = {f['id']: f for f in features_batch if f}
+            for track in tracks:
+                if track['id'] in features_dict:
+                    feat = features_dict[track['id']]
+                    track.update({
+                        'energia': round(feat.get('energy', 0) * 100, 1) if feat.get('energy') else None,
+                        'danceability': round(feat.get('danceability', 0) * 100, 1) if feat.get('danceability') else None,
+                        'valence': round(feat.get('valence', 0) * 100, 1) if feat.get('valence') else None,
+                        'acousticness': round(feat.get('acousticness', 0) * 100, 1) if feat.get('acousticness') else None,
+                        'instrumentalness': round(feat.get('instrumentalness', 0) * 100, 1) if feat.get('instrumentalness') else None,
+                        'liveness': round(feat.get('liveness', 0) * 100, 1) if feat.get('liveness') else None,
+                        'speechiness': round(feat.get('speechiness', 0) * 100, 1) if feat.get('speechiness') else None,
+                        'tempo': round(feat.get('tempo', 0), 1) if feat.get('tempo') else None,
+                        'key': feat.get('key'),
+                        'mode': 'Mayor' if feat.get('mode') == 1 else 'Menor' if feat.get('mode') == 0 else None,
+                        'time_signature': feat.get('time_signature')
+                    })
     except Exception as e:
         st.error(f"Error al cargar canciones: {str(e)}")
     
     return tracks
 
 
-def get_saved_tracks(sp: spotipy.Spotify) -> List[Dict]:
+def get_saved_tracks(sp: spotipy.Spotify, include_features: bool = True) -> List[Dict]:
     """
-    Obtiene las canciones guardadas del usuario
+    Obtiene las canciones guardadas del usuario con estadísticas de audio
     
     Args:
         sp: Cliente de Spotify autenticado
+        include_features: Si incluir estadísticas de audio
     
     Returns:
         Lista de diccionarios con información de canciones
     """
     tracks = []
+    track_ids = []
     try:
         results = sp.current_user_saved_tracks(limit=50)
         
         while results:
             for item in results['items']:
                 track = item['track']
-                tracks.append({
+                track_data = {
                     'artista': ', '.join([artist['name'] for artist in track['artists']]),
                     'titulo': track['name'],
                     'album': track['album']['name'],
                     'duracion_ms': track['duration_ms'],
-                    'url': track['external_urls']['spotify']
-                })
+                    'url': track['external_urls']['spotify'],
+                    'id': track['id']
+                }
+                tracks.append(track_data)
+                if track['id']:
+                    track_ids.append(track['id'])
             
             if results['next']:
                 results = sp.next(results)
             else:
                 break
+        
+        # Obtener audio features si se solicita
+        if include_features and track_ids:
+            features_batch = []
+            for i in range(0, len(track_ids), 100):
+                batch = track_ids[i:i+100]
+                try:
+                    features = sp.audio_features(batch)
+                    features_batch.extend(features if features else [])
+                except:
+                    pass
+            
+            # Mapear features a tracks
+            features_dict = {f['id']: f for f in features_batch if f}
+            for track in tracks:
+                if track['id'] in features_dict:
+                    feat = features_dict[track['id']]
+                    track.update({
+                        'energia': round(feat.get('energy', 0) * 100, 1) if feat.get('energy') else None,
+                        'danceability': round(feat.get('danceability', 0) * 100, 1) if feat.get('danceability') else None,
+                        'valence': round(feat.get('valence', 0) * 100, 1) if feat.get('valence') else None,
+                        'acousticness': round(feat.get('acousticness', 0) * 100, 1) if feat.get('acousticness') else None,
+                        'instrumentalness': round(feat.get('instrumentalness', 0) * 100, 1) if feat.get('instrumentalness') else None,
+                        'liveness': round(feat.get('liveness', 0) * 100, 1) if feat.get('liveness') else None,
+                        'speechiness': round(feat.get('speechiness', 0) * 100, 1) if feat.get('speechiness') else None,
+                        'tempo': round(feat.get('tempo', 0), 1) if feat.get('tempo') else None,
+                        'key': feat.get('key'),
+                        'mode': 'Mayor' if feat.get('mode') == 1 else 'Menor' if feat.get('mode') == 0 else None,
+                        'time_signature': feat.get('time_signature')
+                    })
     except Exception as e:
         st.error(f"Error al cargar canciones guardadas: {str(e)}")
     
@@ -232,6 +305,26 @@ def format_duration(ms: int) -> str:
 
 def render_spotify_tab():
     """Renderiza la pestaña de Spotify"""
+    
+    # Verificar si hay código en query params (callback de OAuth)
+    query_params = st.query_params
+    if 'code' in query_params and 'spotify_auth_manager' in st.session_state:
+        code = query_params['code']
+        try:
+            auth_manager = st.session_state['spotify_auth_manager']
+            token_info = auth_manager.get_access_token(code, as_dict=True)
+            if token_info:
+                st.session_state['spotify_token'] = token_info['access_token']
+                if 'refresh_token' in token_info:
+                    st.session_state['spotify_refresh_token'] = token_info['refresh_token']
+                # Limpiar query params y auth_url
+                st.query_params.clear()
+                if 'spotify_auth_url' in st.session_state:
+                    del st.session_state['spotify_auth_url']
+                st.success("✅ ¡Conectado exitosamente!")
+                st.rerun()
+        except Exception as e:
+            st.error(f"Error al procesar autorización: {str(e)}")
     
     # Verificar si está autenticado
     sp = get_spotify_client()
@@ -289,24 +382,22 @@ def render_spotify_tab():
             st.markdown("---")
             st.markdown("### 🔗 Autorización Pendiente")
             st.markdown(f"""
-            **Paso 1:** Haz clic en el enlace para autorizar:
+            **Haz clic en el enlace para autorizar:**
             
             **[🔓 Autorizar con Spotify]({st.session_state['spotify_auth_url']})**
             
-            **Paso 2:** Después de autorizar, serás redirigido. Copia la **URL completa** de la página.
-            
-            **Paso 3:** Pega la URL aquí:
+            ⚠️ **Importante:** Después de autorizar, serás redirigido automáticamente. Si no funciona, copia la URL completa de la página y pégala abajo.
             """)
             
-            callback_url = st.text_input(
-                "URL de redirección:",
-                key="spotify_callback_input",
-                placeholder="https://accounts.spotify.com/authorize?code=..."
-            )
-            
-            col_btn1, col_btn2 = st.columns(2)
-            with col_btn1:
-                if st.button("✅ Procesar", type="primary"):
+            # Opción manual como fallback
+            with st.expander("🔧 Si la redirección automática no funciona"):
+                callback_url = st.text_input(
+                    "Pega la URL de redirección aquí:",
+                    key="spotify_callback_input",
+                    placeholder="https://accounts.spotify.com/authorize?code=..."
+                )
+                
+                if st.button("✅ Procesar URL manual", type="primary"):
                     if callback_url:
                         if process_callback_url(callback_url):
                             st.success("✅ ¡Conectado exitosamente!")
@@ -318,11 +409,10 @@ def render_spotify_tab():
                     else:
                         st.warning("⚠️ Pega la URL de redirección")
             
-            with col_btn2:
-                if st.button("❌ Cancelar"):
-                    if 'spotify_auth_url' in st.session_state:
-                        del st.session_state['spotify_auth_url']
-                    st.rerun()
+            if st.button("❌ Cancelar"):
+                if 'spotify_auth_url' in st.session_state:
+                    del st.session_state['spotify_auth_url']
+                st.rerun()
         else:
                 # Mostrar información de debug si hay campos vacíos
                 if not client_id or not client_secret or not redirect_uri:
@@ -401,111 +491,217 @@ def render_spotify_tab():
         if option == "📋 Mis Playlists":
             st.subheader("📋 Tus Playlists")
             
-            if st.button("🔄 Cargar Playlists", type="primary"):
-                with st.spinner("Cargando playlists..."):
-                    playlists = get_user_playlists(sp)
+            # Cargar playlists si no están en session_state
+            if 'spotify_playlists' not in st.session_state:
+                if st.button("🔄 Cargar Playlists", type="primary"):
+                    with st.spinner("Cargando playlists..."):
+                        playlists = get_user_playlists(sp)
+                        if playlists:
+                            st.session_state['spotify_playlists'] = playlists
+                            st.success(f"✅ Encontradas {len(playlists)} playlists")
+                            st.rerun()
+            else:
+                playlists = st.session_state['spotify_playlists']
+                
+                # Mostrar lista de playlists
+                df_playlists = pd.DataFrame(playlists)
+                st.dataframe(
+                    df_playlists[['nombre', 'canciones', 'publica']],
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        'nombre': 'Nombre',
+                        'canciones': 'Canciones',
+                        'publica': 'Pública'
+                    }
+                )
+                
+                # Selector de playlist para ver canciones
+                playlist_names = [p['nombre'] for p in playlists]
+                selected_playlist = st.selectbox("Selecciona una playlist para ver sus canciones:", playlist_names, key="spotify_playlist_selector")
+                
+                if selected_playlist:
+                    playlist_id = next(p['id'] for p in playlists if p['nombre'] == selected_playlist)
                     
-                    if playlists:
-                        st.success(f"✅ Encontradas {len(playlists)} playlists")
+                    # Cargar canciones si no están cargadas o si cambió la playlist
+                    playlist_key = f"spotify_playlist_tracks_{playlist_id}"
+                    if playlist_key not in st.session_state or st.session_state.get('spotify_selected_playlist_id') != playlist_id:
+                        if st.button("🎵 Cargar Canciones", type="primary", key="load_playlist_tracks"):
+                            with st.spinner("Cargando canciones y estadísticas..."):
+                                tracks = get_playlist_tracks(sp, playlist_id, include_features=True)
+                                if tracks:
+                                    # Formatear duración
+                                    for track in tracks:
+                                        track['duracion'] = format_duration(track['duracion_ms'])
+                                    st.session_state[playlist_key] = tracks
+                                    st.session_state['spotify_selected_playlist_id'] = playlist_id
+                                    st.rerun()
+                    else:
+                        tracks = st.session_state[playlist_key]
                         
-                        # Mostrar lista de playlists
-                        df_playlists = pd.DataFrame(playlists)
-                        st.dataframe(
-                            df_playlists[['nombre', 'canciones', 'publica']],
-                            use_container_width=True,
-                            hide_index=True,
-                            column_config={
-                                'nombre': 'Nombre',
-                                'canciones': 'Canciones',
-                                'publica': 'Pública'
-                            }
-                        )
-                        
-                        # Selector de playlist para ver canciones
-                        playlist_names = [p['nombre'] for p in playlists]
-                        selected_playlist = st.selectbox("Selecciona una playlist para ver sus canciones:", playlist_names)
-                        
-                        if selected_playlist:
-                            playlist_id = next(p['id'] for p in playlists if p['nombre'] == selected_playlist)
+                        if tracks:
+                            # Columnas para mostrar
+                            display_cols = ['artista', 'titulo', 'album', 'duracion', 'energia', 'danceability', 'valence', 'tempo']
+                            available_cols = [col for col in display_cols if any(t.get(col) is not None for t in tracks)]
                             
-                            if st.button("🎵 Ver Canciones", type="primary"):
-                                with st.spinner("Cargando canciones..."):
-                                    tracks = get_playlist_tracks(sp, playlist_id)
-                                    
-                                    if tracks:
-                                        # Formatear duración
-                                        for track in tracks:
-                                            track['duracion'] = format_duration(track['duracion_ms'])
-                                        
-                                        df_tracks = pd.DataFrame(tracks)
-                                        st.dataframe(
-                                            df_tracks[['artista', 'titulo', 'album', 'duracion']],
-                                            use_container_width=True,
-                                            hide_index=True,
-                                            column_config={
-                                                'artista': 'Artista',
-                                                'titulo': 'Título',
-                                                'album': 'Álbum',
-                                                'duracion': 'Duración'
-                                            }
-                                        )
-                                        
-                                        # Botón de descarga
-                                        csv = df_tracks.to_csv(index=False).encode('utf-8-sig')
-                                        st.download_button(
-                                            label="📥 Descargar CSV",
-                                            data=csv,
-                                            file_name=f"spotify_playlist_{selected_playlist}_{int(time.time())}.csv",
-                                            mime="text/csv"
-                                        )
+                            df_tracks = pd.DataFrame(tracks)
+                            
+                            # Mostrar estadísticas promedio
+                            if any(col in df_tracks.columns for col in ['energia', 'danceability', 'valence']):
+                                st.markdown("### 📊 Estadísticas Promedio de la Playlist")
+                                col1, col2, col3, col4 = st.columns(4)
+                                with col1:
+                                    if 'energia' in df_tracks.columns:
+                                        avg_energy = df_tracks['energia'].mean()
+                                        st.metric("⚡ Energía Promedio", f"{avg_energy:.1f}%")
+                                with col2:
+                                    if 'danceability' in df_tracks.columns:
+                                        avg_dance = df_tracks['danceability'].mean()
+                                        st.metric("💃 Danceability", f"{avg_dance:.1f}%")
+                                with col3:
+                                    if 'valence' in df_tracks.columns:
+                                        avg_valence = df_tracks['valence'].mean()
+                                        st.metric("😊 Valence", f"{avg_valence:.1f}%")
+                                with col4:
+                                    if 'tempo' in df_tracks.columns:
+                                        avg_tempo = df_tracks['tempo'].mean()
+                                        st.metric("🎵 Tempo Promedio", f"{avg_tempo:.1f} BPM")
+                            
+                            # Tabla de canciones
+                            st.markdown("### 🎵 Canciones")
+                            st.dataframe(
+                                df_tracks[available_cols],
+                                use_container_width=True,
+                                hide_index=True,
+                                column_config={
+                                    'artista': 'Artista',
+                                    'titulo': 'Título',
+                                    'album': 'Álbum',
+                                    'duracion': 'Duración',
+                                    'energia': st.column_config.NumberColumn('⚡ Energía', format="%.1f%%"),
+                                    'danceability': st.column_config.NumberColumn('💃 Danceability', format="%.1f%%"),
+                                    'valence': st.column_config.NumberColumn('😊 Valence', format="%.1f%%"),
+                                    'tempo': st.column_config.NumberColumn('🎵 Tempo', format="%.1f BPM")
+                                }
+                            )
+                            
+                            # Botón de descarga
+                            csv = df_tracks.to_csv(index=False).encode('utf-8-sig')
+                            st.download_button(
+                                label="📥 Descargar CSV",
+                                data=csv,
+                                file_name=f"spotify_playlist_{selected_playlist.replace(' ', '_')}_{int(time.time())}.csv",
+                                mime="text/csv"
+                            )
+                        
+                        if st.button("🔄 Recargar Canciones"):
+                            if playlist_key in st.session_state:
+                                del st.session_state[playlist_key]
+                            st.rerun()
+                
+                if st.button("🔄 Recargar Playlists"):
+                    if 'spotify_playlists' in st.session_state:
+                        del st.session_state['spotify_playlists']
+                    if 'spotify_selected_playlist_id' in st.session_state:
+                        del st.session_state['spotify_selected_playlist_id']
+                    st.rerun()
         
         else:  # Canciones Guardadas
             st.subheader("❤️ Tus Canciones Guardadas")
             
-            if st.button("🔄 Cargar Canciones Guardadas", type="primary"):
-                with st.spinner("Cargando canciones guardadas..."):
-                    tracks = get_saved_tracks(sp)
-                    
-                    if tracks:
-                        st.success(f"✅ Encontradas {len(tracks)} canciones guardadas")
-                        
-                        # Formatear duración
-                        for track in tracks:
-                            track['duracion'] = format_duration(track['duracion_ms'])
-                        
-                        df_tracks = pd.DataFrame(tracks)
-                        st.dataframe(
-                            df_tracks[['artista', 'titulo', 'album', 'duracion']],
-                            use_container_width=True,
-                            hide_index=True,
-                            column_config={
-                                'artista': 'Artista',
-                                'titulo': 'Título',
-                                'album': 'Álbum',
-                                'duracion': 'Duración'
-                            }
-                        )
-                        
-                        # Estadísticas
-                        col1, col2, col3 = st.columns(3)
-                        with col1:
-                            st.metric("Total Canciones", len(tracks))
-                        with col2:
-                            st.metric("Artistas Únicos", df_tracks['artista'].nunique())
-                        with col3:
-                            total_duration = sum(t['duracion_ms'] for t in tracks)
-                            hours = total_duration // 3600000
-                            minutes = (total_duration % 3600000) // 60000
-                            st.metric("Duración Total", f"{hours}h {minutes}m")
-                        
-                        # Botón de descarga
-                        csv = df_tracks.to_csv(index=False).encode('utf-8-sig')
-                        st.download_button(
-                            label="📥 Descargar CSV",
-                            data=csv,
-                            file_name=f"spotify_saved_tracks_{int(time.time())}.csv",
-                            mime="text/csv"
-                        )
+            # Cargar canciones si no están en session_state
+            if 'spotify_saved_tracks' not in st.session_state:
+                if st.button("🔄 Cargar Canciones Guardadas", type="primary"):
+                    with st.spinner("Cargando canciones guardadas y estadísticas..."):
+                        tracks = get_saved_tracks(sp, include_features=True)
+                        if tracks:
+                            # Formatear duración
+                            for track in tracks:
+                                track['duracion'] = format_duration(track['duracion_ms'])
+                            st.session_state['spotify_saved_tracks'] = tracks
+                            st.success(f"✅ Encontradas {len(tracks)} canciones guardadas")
+                            st.rerun()
+            else:
+                tracks = st.session_state['spotify_saved_tracks']
+                df_tracks = pd.DataFrame(tracks)
+                
+                # Estadísticas generales
+                st.markdown("### 📊 Estadísticas Generales")
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Total Canciones", len(tracks))
+                with col2:
+                    st.metric("Artistas Únicos", df_tracks['artista'].nunique())
+                with col3:
+                    total_duration = sum(t['duracion_ms'] for t in tracks)
+                    hours = total_duration // 3600000
+                    minutes = (total_duration % 3600000) // 60000
+                    st.metric("Duración Total", f"{hours}h {minutes}m")
+                with col4:
+                    if 'album' in df_tracks.columns:
+                        st.metric("Álbumes Únicos", df_tracks['album'].nunique())
+                
+                # Estadísticas promedio de audio
+                if any(col in df_tracks.columns for col in ['energia', 'danceability', 'valence']):
+                    st.markdown("### 📊 Estadísticas Promedio de Audio")
+                    col1, col2, col3, col4, col5 = st.columns(5)
+                    with col1:
+                        if 'energia' in df_tracks.columns:
+                            avg_energy = df_tracks['energia'].mean()
+                            st.metric("⚡ Energía", f"{avg_energy:.1f}%")
+                    with col2:
+                        if 'danceability' in df_tracks.columns:
+                            avg_dance = df_tracks['danceability'].mean()
+                            st.metric("💃 Danceability", f"{avg_dance:.1f}%")
+                    with col3:
+                        if 'valence' in df_tracks.columns:
+                            avg_valence = df_tracks['valence'].mean()
+                            st.metric("😊 Valence", f"{avg_valence:.1f}%")
+                    with col4:
+                        if 'acousticness' in df_tracks.columns:
+                            avg_acoustic = df_tracks['acousticness'].mean()
+                            st.metric("🎸 Acousticness", f"{avg_acoustic:.1f}%")
+                    with col5:
+                        if 'tempo' in df_tracks.columns:
+                            avg_tempo = df_tracks['tempo'].mean()
+                            st.metric("🎵 Tempo", f"{avg_tempo:.1f} BPM")
+                
+                # Columnas para mostrar
+                display_cols = ['artista', 'titulo', 'album', 'duracion', 'energia', 'danceability', 'valence', 'acousticness', 'tempo']
+                available_cols = [col for col in display_cols if any(t.get(col) is not None for t in tracks)]
+                
+                # Tabla de canciones
+                st.markdown("### 🎵 Canciones")
+                st.dataframe(
+                    df_tracks[available_cols],
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        'artista': 'Artista',
+                        'titulo': 'Título',
+                        'album': 'Álbum',
+                        'duracion': 'Duración',
+                        'energia': st.column_config.NumberColumn('⚡ Energía', format="%.1f%%"),
+                        'danceability': st.column_config.NumberColumn('💃 Danceability', format="%.1f%%"),
+                        'valence': st.column_config.NumberColumn('😊 Valence', format="%.1f%%"),
+                        'acousticness': st.column_config.NumberColumn('🎸 Acousticness', format="%.1f%%"),
+                        'tempo': st.column_config.NumberColumn('🎵 Tempo', format="%.1f BPM")
+                    }
+                )
+                
+                # Botón de descarga
+                csv = df_tracks.to_csv(index=False).encode('utf-8-sig')
+                st.download_button(
+                    label="📥 Descargar CSV",
+                    data=csv,
+                    file_name=f"spotify_saved_tracks_{int(time.time())}.csv",
+                    mime="text/csv"
+                )
+                
+                if st.button("🔄 Recargar Canciones"):
+                    if 'spotify_saved_tracks' in st.session_state:
+                        del st.session_state['spotify_saved_tracks']
+                    st.rerun()
         
         # Botón para desconectar
         st.markdown("---")
