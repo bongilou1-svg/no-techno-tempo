@@ -190,34 +190,49 @@ def get_playlist_tracks(sp: spotipy.Spotify, playlist_id: str, include_features:
         
         # Obtener audio features si se solicita
         if include_features and track_ids:
-            # Spotify API limita a 100 tracks por request
-            features_batch = []
-            for i in range(0, len(track_ids), 100):
-                batch = track_ids[i:i+100]
-                try:
-                    features = sp.audio_features(batch)
-                    features_batch.extend(features if features else [])
-                except:
-                    pass
+            # Filtrar None IDs
+            valid_track_ids = [tid for tid in track_ids if tid]
             
-            # Mapear features a tracks
-            features_dict = {f['id']: f for f in features_batch if f}
-            for track in tracks:
-                if track['id'] in features_dict:
-                    feat = features_dict[track['id']]
-                    track.update({
-                        'energia': round(feat.get('energy', 0) * 100, 1) if feat.get('energy') else None,
-                        'danceability': round(feat.get('danceability', 0) * 100, 1) if feat.get('danceability') else None,
-                        'valence': round(feat.get('valence', 0) * 100, 1) if feat.get('valence') else None,
-                        'acousticness': round(feat.get('acousticness', 0) * 100, 1) if feat.get('acousticness') else None,
-                        'instrumentalness': round(feat.get('instrumentalness', 0) * 100, 1) if feat.get('instrumentalness') else None,
-                        'liveness': round(feat.get('liveness', 0) * 100, 1) if feat.get('liveness') else None,
-                        'speechiness': round(feat.get('speechiness', 0) * 100, 1) if feat.get('speechiness') else None,
-                        'tempo': round(feat.get('tempo', 0), 1) if feat.get('tempo') else None,
-                        'key': feat.get('key'),
-                        'mode': 'Mayor' if feat.get('mode') == 1 else 'Menor' if feat.get('mode') == 0 else None,
-                        'time_signature': feat.get('time_signature')
-                    })
+            if valid_track_ids:
+                # Spotify API limita a 100 tracks por request
+                features_batch = []
+                for i in range(0, len(valid_track_ids), 100):
+                    batch = valid_track_ids[i:i+100]
+                    try:
+                        features = sp.audio_features(batch)
+                        if features:
+                            features_batch.extend([f for f in features if f])  # Filtrar None
+                    except Exception as e:
+                        st.warning(f"Error al obtener features para batch {i//100 + 1}: {str(e)}")
+                
+                # Mapear features a tracks
+                features_dict = {f['id']: f for f in features_batch if f and f.get('id')}
+                
+                # Añadir estadísticas a todas las canciones (con valores por defecto si no hay)
+                for track in tracks:
+                    if track.get('id') and track['id'] in features_dict:
+                        feat = features_dict[track['id']]
+                        track.update({
+                            'energia': round(feat.get('energy', 0) * 100, 1) if feat.get('energy') is not None else None,
+                            'danceability': round(feat.get('danceability', 0) * 100, 1) if feat.get('danceability') is not None else None,
+                            'valence': round(feat.get('valence', 0) * 100, 1) if feat.get('valence') is not None else None,
+                            'acousticness': round(feat.get('acousticness', 0) * 100, 1) if feat.get('acousticness') is not None else None,
+                            'instrumentalness': round(feat.get('instrumentalness', 0) * 100, 1) if feat.get('instrumentalness') is not None else None,
+                            'liveness': round(feat.get('liveness', 0) * 100, 1) if feat.get('liveness') is not None else None,
+                            'speechiness': round(feat.get('speechiness', 0) * 100, 1) if feat.get('speechiness') is not None else None,
+                            'tempo': round(feat.get('tempo', 0), 1) if feat.get('tempo') is not None else None,
+                            'key': feat.get('key'),
+                            'mode': 'Mayor' if feat.get('mode') == 1 else 'Menor' if feat.get('mode') == 0 else None,
+                            'time_signature': feat.get('time_signature')
+                        })
+                    else:
+                        # Añadir None para tracks sin features
+                        track.update({
+                            'energia': None, 'danceability': None, 'valence': None,
+                            'acousticness': None, 'instrumentalness': None, 'liveness': None,
+                            'speechiness': None, 'tempo': None, 'key': None,
+                            'mode': None, 'time_signature': None
+                        })
     except Exception as e:
         st.error(f"Error al cargar canciones: {str(e)}")
     
@@ -262,33 +277,49 @@ def get_saved_tracks(sp: spotipy.Spotify, include_features: bool = True) -> List
         
         # Obtener audio features si se solicita
         if include_features and track_ids:
-            features_batch = []
-            for i in range(0, len(track_ids), 100):
-                batch = track_ids[i:i+100]
-                try:
-                    features = sp.audio_features(batch)
-                    features_batch.extend(features if features else [])
-                except:
-                    pass
+            # Filtrar None IDs
+            valid_track_ids = [tid for tid in track_ids if tid]
             
-            # Mapear features a tracks
-            features_dict = {f['id']: f for f in features_batch if f}
-            for track in tracks:
-                if track['id'] in features_dict:
-                    feat = features_dict[track['id']]
-                    track.update({
-                        'energia': round(feat.get('energy', 0) * 100, 1) if feat.get('energy') else None,
-                        'danceability': round(feat.get('danceability', 0) * 100, 1) if feat.get('danceability') else None,
-                        'valence': round(feat.get('valence', 0) * 100, 1) if feat.get('valence') else None,
-                        'acousticness': round(feat.get('acousticness', 0) * 100, 1) if feat.get('acousticness') else None,
-                        'instrumentalness': round(feat.get('instrumentalness', 0) * 100, 1) if feat.get('instrumentalness') else None,
-                        'liveness': round(feat.get('liveness', 0) * 100, 1) if feat.get('liveness') else None,
-                        'speechiness': round(feat.get('speechiness', 0) * 100, 1) if feat.get('speechiness') else None,
-                        'tempo': round(feat.get('tempo', 0), 1) if feat.get('tempo') else None,
-                        'key': feat.get('key'),
-                        'mode': 'Mayor' if feat.get('mode') == 1 else 'Menor' if feat.get('mode') == 0 else None,
-                        'time_signature': feat.get('time_signature')
-                    })
+            if valid_track_ids:
+                # Spotify API limita a 100 tracks por request
+                features_batch = []
+                for i in range(0, len(valid_track_ids), 100):
+                    batch = valid_track_ids[i:i+100]
+                    try:
+                        features = sp.audio_features(batch)
+                        if features:
+                            features_batch.extend([f for f in features if f])  # Filtrar None
+                    except Exception as e:
+                        st.warning(f"Error al obtener features para batch {i//100 + 1}: {str(e)}")
+                
+                # Mapear features a tracks
+                features_dict = {f['id']: f for f in features_batch if f and f.get('id')}
+                
+                # Añadir estadísticas a todas las canciones (con valores por defecto si no hay)
+                for track in tracks:
+                    if track.get('id') and track['id'] in features_dict:
+                        feat = features_dict[track['id']]
+                        track.update({
+                            'energia': round(feat.get('energy', 0) * 100, 1) if feat.get('energy') is not None else None,
+                            'danceability': round(feat.get('danceability', 0) * 100, 1) if feat.get('danceability') is not None else None,
+                            'valence': round(feat.get('valence', 0) * 100, 1) if feat.get('valence') is not None else None,
+                            'acousticness': round(feat.get('acousticness', 0) * 100, 1) if feat.get('acousticness') is not None else None,
+                            'instrumentalness': round(feat.get('instrumentalness', 0) * 100, 1) if feat.get('instrumentalness') is not None else None,
+                            'liveness': round(feat.get('liveness', 0) * 100, 1) if feat.get('liveness') is not None else None,
+                            'speechiness': round(feat.get('speechiness', 0) * 100, 1) if feat.get('speechiness') is not None else None,
+                            'tempo': round(feat.get('tempo', 0), 1) if feat.get('tempo') is not None else None,
+                            'key': feat.get('key'),
+                            'mode': 'Mayor' if feat.get('mode') == 1 else 'Menor' if feat.get('mode') == 0 else None,
+                            'time_signature': feat.get('time_signature')
+                        })
+                    else:
+                        # Añadir None para tracks sin features
+                        track.update({
+                            'energia': None, 'danceability': None, 'valence': None,
+                            'acousticness': None, 'instrumentalness': None, 'liveness': None,
+                            'speechiness': None, 'tempo': None, 'key': None,
+                            'mode': None, 'time_signature': None
+                        })
     except Exception as e:
         st.error(f"Error al cargar canciones guardadas: {str(e)}")
     
@@ -527,12 +558,20 @@ def render_spotify_tab():
                     playlist_key = f"spotify_playlist_tracks_{playlist_id}"
                     if playlist_key not in st.session_state or st.session_state.get('spotify_selected_playlist_id') != playlist_id:
                         if st.button("🎵 Cargar Canciones", type="primary", key="load_playlist_tracks"):
-                            with st.spinner("Cargando canciones y estadísticas..."):
+                            with st.spinner("Cargando canciones y estadísticas de audio..."):
                                 tracks = get_playlist_tracks(sp, playlist_id, include_features=True)
                                 if tracks:
                                     # Formatear duración
                                     for track in tracks:
                                         track['duracion'] = format_duration(track['duracion_ms'])
+                                    
+                                    # Verificar si se obtuvieron estadísticas
+                                    tracks_with_stats = sum(1 for t in tracks if t.get('energia') is not None)
+                                    if tracks_with_stats > 0:
+                                        st.success(f"✅ Cargadas {len(tracks)} canciones con estadísticas de audio para {tracks_with_stats} canciones")
+                                    else:
+                                        st.warning(f"⚠️ Cargadas {len(tracks)} canciones, pero no se pudieron obtener estadísticas de audio")
+                                    
                                     st.session_state[playlist_key] = tracks
                                     st.session_state['spotify_selected_playlist_id'] = playlist_id
                                     st.rerun()
@@ -540,49 +579,66 @@ def render_spotify_tab():
                         tracks = st.session_state[playlist_key]
                         
                         if tracks:
-                            # Columnas para mostrar
-                            display_cols = ['artista', 'titulo', 'album', 'duracion', 'energia', 'danceability', 'valence', 'tempo']
-                            available_cols = [col for col in display_cols if any(t.get(col) is not None for t in tracks)]
-                            
                             df_tracks = pd.DataFrame(tracks)
                             
-                            # Mostrar estadísticas promedio
-                            if any(col in df_tracks.columns for col in ['energia', 'danceability', 'valence']):
+                            # Columnas base siempre visibles
+                            base_cols = ['artista', 'titulo', 'album', 'duracion']
+                            
+                            # Columnas de estadísticas (mostrar si existen en el DataFrame)
+                            stats_cols = ['energia', 'danceability', 'valence', 'acousticness', 'tempo']
+                            available_stats = [col for col in stats_cols if col in df_tracks.columns]
+                            
+                            # Columnas a mostrar
+                            display_cols = base_cols + available_stats
+                            
+                            # Mostrar estadísticas promedio solo si hay datos
+                            if available_stats:
                                 st.markdown("### 📊 Estadísticas Promedio de la Playlist")
-                                col1, col2, col3, col4 = st.columns(4)
-                                with col1:
-                                    if 'energia' in df_tracks.columns:
-                                        avg_energy = df_tracks['energia'].mean()
-                                        st.metric("⚡ Energía Promedio", f"{avg_energy:.1f}%")
-                                with col2:
-                                    if 'danceability' in df_tracks.columns:
-                                        avg_dance = df_tracks['danceability'].mean()
-                                        st.metric("💃 Danceability", f"{avg_dance:.1f}%")
-                                with col3:
-                                    if 'valence' in df_tracks.columns:
-                                        avg_valence = df_tracks['valence'].mean()
-                                        st.metric("😊 Valence", f"{avg_valence:.1f}%")
-                                with col4:
-                                    if 'tempo' in df_tracks.columns:
-                                        avg_tempo = df_tracks['tempo'].mean()
-                                        st.metric("🎵 Tempo Promedio", f"{avg_tempo:.1f} BPM")
+                                cols = st.columns(min(len(available_stats), 5))
+                                for idx, stat_col in enumerate(available_stats[:5]):
+                                    with cols[idx]:
+                                        if stat_col == 'energia':
+                                            avg = df_tracks[stat_col].mean()
+                                            st.metric("⚡ Energía", f"{avg:.1f}%" if not pd.isna(avg) else "N/A")
+                                        elif stat_col == 'danceability':
+                                            avg = df_tracks[stat_col].mean()
+                                            st.metric("💃 Danceability", f"{avg:.1f}%" if not pd.isna(avg) else "N/A")
+                                        elif stat_col == 'valence':
+                                            avg = df_tracks[stat_col].mean()
+                                            st.metric("😊 Valence", f"{avg:.1f}%" if not pd.isna(avg) else "N/A")
+                                        elif stat_col == 'acousticness':
+                                            avg = df_tracks[stat_col].mean()
+                                            st.metric("🎸 Acousticness", f"{avg:.1f}%" if not pd.isna(avg) else "N/A")
+                                        elif stat_col == 'tempo':
+                                            avg = df_tracks[stat_col].mean()
+                                            st.metric("🎵 Tempo", f"{avg:.1f} BPM" if not pd.isna(avg) else "N/A")
                             
                             # Tabla de canciones
                             st.markdown("### 🎵 Canciones")
+                            column_config = {
+                                'artista': 'Artista',
+                                'titulo': 'Título',
+                                'album': 'Álbum',
+                                'duracion': 'Duración'
+                            }
+                            
+                            # Añadir config para estadísticas
+                            if 'energia' in display_cols:
+                                column_config['energia'] = st.column_config.NumberColumn('⚡ Energía', format="%.1f%%")
+                            if 'danceability' in display_cols:
+                                column_config['danceability'] = st.column_config.NumberColumn('💃 Danceability', format="%.1f%%")
+                            if 'valence' in display_cols:
+                                column_config['valence'] = st.column_config.NumberColumn('😊 Valence', format="%.1f%%")
+                            if 'acousticness' in display_cols:
+                                column_config['acousticness'] = st.column_config.NumberColumn('🎸 Acousticness', format="%.1f%%")
+                            if 'tempo' in display_cols:
+                                column_config['tempo'] = st.column_config.NumberColumn('🎵 Tempo', format="%.1f BPM")
+                            
                             st.dataframe(
-                                df_tracks[available_cols],
+                                df_tracks[display_cols],
                                 use_container_width=True,
                                 hide_index=True,
-                                column_config={
-                                    'artista': 'Artista',
-                                    'titulo': 'Título',
-                                    'album': 'Álbum',
-                                    'duracion': 'Duración',
-                                    'energia': st.column_config.NumberColumn('⚡ Energía', format="%.1f%%"),
-                                    'danceability': st.column_config.NumberColumn('💃 Danceability', format="%.1f%%"),
-                                    'valence': st.column_config.NumberColumn('😊 Valence', format="%.1f%%"),
-                                    'tempo': st.column_config.NumberColumn('🎵 Tempo', format="%.1f BPM")
-                                }
+                                column_config=column_config
                             )
                             
                             # Botón de descarga
@@ -612,14 +668,21 @@ def render_spotify_tab():
             # Cargar canciones si no están en session_state
             if 'spotify_saved_tracks' not in st.session_state:
                 if st.button("🔄 Cargar Canciones Guardadas", type="primary"):
-                    with st.spinner("Cargando canciones guardadas y estadísticas..."):
+                    with st.spinner("Cargando canciones guardadas y estadísticas de audio..."):
                         tracks = get_saved_tracks(sp, include_features=True)
                         if tracks:
                             # Formatear duración
                             for track in tracks:
                                 track['duracion'] = format_duration(track['duracion_ms'])
+                            
+                            # Verificar si se obtuvieron estadísticas
+                            tracks_with_stats = sum(1 for t in tracks if t.get('energia') is not None)
+                            if tracks_with_stats > 0:
+                                st.success(f"✅ Cargadas {len(tracks)} canciones con estadísticas de audio para {tracks_with_stats} canciones")
+                            else:
+                                st.warning(f"⚠️ Cargadas {len(tracks)} canciones, pero no se pudieron obtener estadísticas de audio")
+                            
                             st.session_state['spotify_saved_tracks'] = tracks
-                            st.success(f"✅ Encontradas {len(tracks)} canciones guardadas")
                             st.rerun()
             else:
                 tracks = st.session_state['spotify_saved_tracks']
@@ -666,27 +729,42 @@ def render_spotify_tab():
                             avg_tempo = df_tracks['tempo'].mean()
                             st.metric("🎵 Tempo", f"{avg_tempo:.1f} BPM")
                 
-                # Columnas para mostrar
-                display_cols = ['artista', 'titulo', 'album', 'duracion', 'energia', 'danceability', 'valence', 'acousticness', 'tempo']
-                available_cols = [col for col in display_cols if any(t.get(col) is not None for t in tracks)]
+                # Columnas base siempre visibles
+                base_cols = ['artista', 'titulo', 'album', 'duracion']
+                
+                # Columnas de estadísticas (mostrar si existen en el DataFrame)
+                stats_cols = ['energia', 'danceability', 'valence', 'acousticness', 'tempo']
+                available_stats = [col for col in stats_cols if col in df_tracks.columns]
+                
+                # Columnas a mostrar
+                display_cols = base_cols + available_stats
                 
                 # Tabla de canciones
                 st.markdown("### 🎵 Canciones")
+                column_config = {
+                    'artista': 'Artista',
+                    'titulo': 'Título',
+                    'album': 'Álbum',
+                    'duracion': 'Duración'
+                }
+                
+                # Añadir config para estadísticas
+                if 'energia' in display_cols:
+                    column_config['energia'] = st.column_config.NumberColumn('⚡ Energía', format="%.1f%%")
+                if 'danceability' in display_cols:
+                    column_config['danceability'] = st.column_config.NumberColumn('💃 Danceability', format="%.1f%%")
+                if 'valence' in display_cols:
+                    column_config['valence'] = st.column_config.NumberColumn('😊 Valence', format="%.1f%%")
+                if 'acousticness' in display_cols:
+                    column_config['acousticness'] = st.column_config.NumberColumn('🎸 Acousticness', format="%.1f%%")
+                if 'tempo' in display_cols:
+                    column_config['tempo'] = st.column_config.NumberColumn('🎵 Tempo', format="%.1f BPM")
+                
                 st.dataframe(
-                    df_tracks[available_cols],
+                    df_tracks[display_cols],
                     use_container_width=True,
                     hide_index=True,
-                    column_config={
-                        'artista': 'Artista',
-                        'titulo': 'Título',
-                        'album': 'Álbum',
-                        'duracion': 'Duración',
-                        'energia': st.column_config.NumberColumn('⚡ Energía', format="%.1f%%"),
-                        'danceability': st.column_config.NumberColumn('💃 Danceability', format="%.1f%%"),
-                        'valence': st.column_config.NumberColumn('😊 Valence', format="%.1f%%"),
-                        'acousticness': st.column_config.NumberColumn('🎸 Acousticness', format="%.1f%%"),
-                        'tempo': st.column_config.NumberColumn('🎵 Tempo', format="%.1f BPM")
-                    }
+                    column_config=column_config
                 )
                 
                 # Botón de descarga
