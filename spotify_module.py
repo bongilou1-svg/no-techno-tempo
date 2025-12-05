@@ -286,44 +286,44 @@ def render_spotify_tab():
         
         # Verificar si ya tenemos una URL de autorización pendiente
         if 'spotify_auth_url' in st.session_state:
-                st.markdown("---")
-                st.markdown("### 🔗 Autorización Pendiente")
-                st.markdown(f"""
-                **Paso 1:** Haz clic en el enlace para autorizar:
-                
-                **[🔓 Autorizar con Spotify]({st.session_state['spotify_auth_url']})**
-                
-                **Paso 2:** Después de autorizar, serás redirigido. Copia la **URL completa** de la página.
-                
-                **Paso 3:** Pega la URL aquí:
-                """)
-                
-                callback_url = st.text_input(
-                    "URL de redirección:",
-                    key="spotify_callback_input",
-                    placeholder="https://accounts.spotify.com/authorize?code=..."
-                )
-                
-                col_btn1, col_btn2 = st.columns(2)
-                with col_btn1:
-                    if st.button("✅ Procesar", type="primary"):
-                        if callback_url:
-                            if process_callback_url(callback_url):
-                                st.success("✅ ¡Conectado exitosamente!")
-                                if 'spotify_auth_url' in st.session_state:
-                                    del st.session_state['spotify_auth_url']
-                                st.rerun()
-                            else:
-                                st.error("❌ Error. Verifica la URL.")
+            st.markdown("---")
+            st.markdown("### 🔗 Autorización Pendiente")
+            st.markdown(f"""
+            **Paso 1:** Haz clic en el enlace para autorizar:
+            
+            **[🔓 Autorizar con Spotify]({st.session_state['spotify_auth_url']})**
+            
+            **Paso 2:** Después de autorizar, serás redirigido. Copia la **URL completa** de la página.
+            
+            **Paso 3:** Pega la URL aquí:
+            """)
+            
+            callback_url = st.text_input(
+                "URL de redirección:",
+                key="spotify_callback_input",
+                placeholder="https://accounts.spotify.com/authorize?code=..."
+            )
+            
+            col_btn1, col_btn2 = st.columns(2)
+            with col_btn1:
+                if st.button("✅ Procesar", type="primary"):
+                    if callback_url:
+                        if process_callback_url(callback_url):
+                            st.success("✅ ¡Conectado exitosamente!")
+                            if 'spotify_auth_url' in st.session_state:
+                                del st.session_state['spotify_auth_url']
+                            st.rerun()
                         else:
-                            st.warning("⚠️ Pega la URL de redirección")
-                
-                with col_btn2:
-                    if st.button("❌ Cancelar"):
-                        if 'spotify_auth_url' in st.session_state:
-                            del st.session_state['spotify_auth_url']
-                        st.rerun()
-            else:
+                            st.error("❌ Error. Verifica la URL.")
+                    else:
+                        st.warning("⚠️ Pega la URL de redirección")
+            
+            with col_btn2:
+                if st.button("❌ Cancelar"):
+                    if 'spotify_auth_url' in st.session_state:
+                        del st.session_state['spotify_auth_url']
+                    st.rerun()
+        else:
                 # Mostrar información de debug si hay campos vacíos
                 if not client_id or not client_secret or not redirect_uri:
                     missing = []
